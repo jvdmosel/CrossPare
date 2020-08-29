@@ -1,5 +1,6 @@
 package de.ugoe.cs.cpdp.wekaclassifier;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -14,6 +15,7 @@ import weka.core.Attribute;
 import weka.core.Instance;
 import weka.core.Instances;
 import weka.core.Utils;
+import weka.core.converters.CSVSaver;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -22,13 +24,15 @@ import de.unihannover.gimo_m.mining.common.Blackboard;
 import de.unihannover.gimo_m.mining.common.ResultData;
 import de.unihannover.gimo_m.mining.common.RecordSet;
 import de.unihannover.gimo_m.mining.common.TargetFunction;
+import de.unihannover.gimo_m.mining.common.ValuedResult;
+import de.unihannover.gimo_m.mining.common.Blackboard.RecordsAndRemarks;
 import de.unihannover.gimo_m.mining.common.RawEvaluationResult;
 import de.unihannover.gimo_m.mining.common.Record;
 import de.unihannover.gimo_m.mining.common.RecordScheme;
 import de.unihannover.gimo_m.mining.common.RuleSet;
 import de.unihannover.gimo_m.mining.agents.MiningAgent;
 
-public class GimoMClassifier extends AbstractClassifier {
+public class GimoMClassifier extends AbstractClassifier implements IBugMatrixAwareClassifier {
 
     private static final long serialVersionUID = 1L;
 
@@ -37,6 +41,8 @@ public class GimoMClassifier extends AbstractClassifier {
     private Blackboard blackboard = null;
 
     private double[][] bugMatrix = null;
+
+    private List<Double> efforts = null;
 
     private double maxComplexity = 30;
 
@@ -48,12 +54,14 @@ public class GimoMClassifier extends AbstractClassifier {
 
     private boolean verbose = false;
 
+    @Override
     public void setBugMatrix(Instances bugMatrix) {
-        this.bugMatrix = new double[bugMatrix.size()][bugMatrix.numAttributes()];
-        int i = 0;
-        for (Instance instance : bugMatrix) {
-            this.bugMatrix[i++] = instance.toDoubleArray();
-        }
+        this.bugMatrix = toDoubleMatrix(bugMatrix);
+    }
+
+    @Override
+    public void setEfforts(List<Double> efforts) {
+        this.efforts = new ArrayList<Double>(efforts);
     }
 
     @Override
@@ -71,7 +79,7 @@ public class GimoMClassifier extends AbstractClassifier {
         try {
             bestRule = getBestRule();
         } catch (Exception e) {
-            LOGGER.error("No best rule found. Using default rule.");
+            LOGGER.info("No best rule found. Using default rule.");
             // default rule: normally use 0
             return 0.0;
         }
@@ -82,43 +90,62 @@ public class GimoMClassifier extends AbstractClassifier {
 
     @Override
     public void buildClassifier(Instances trainData) throws Exception {
-        if (this.bugMatrix == null) {
-            LOGGER.error("GimoMClassifier requires a bugmatrix for training");
+        if (this.bugMatrix == null || this.efforts == null) {
+            LOGGER.error("GimoMClassifier requires a bugmatrix and efforts for training");
             throw new RuntimeException();
         }
         RecordSet records = new RecordSet(determineScheme(trainData), transformToRecords(trainData));
         ResultData resultData = new ResultData(records);
-        List<TargetFunction> targetFunctions = RawEvaluationResult.createTargetFunctions(resultData, bugMatrix);
+        List<TargetFunction> targetFunctions = RawEvaluationResult.createTargetFunctions(resultData, bugMatrix,
+                efforts);
         blackboard = new Blackboard(records, resultData, targetFunctions, System.currentTimeMillis());
         blackboard.setLog(verbose);
         ExecutorService executor = Executors.newFixedThreadPool(numberOfAgents);
-        for (int i = 0; i < numberOfAgents; i++) {
+        for (int i = 1; i <= numberOfAgents; i++) {
             if (verbose) {
-                LOGGER.error(String.format("Agent started. %d agents now running.", i));
+                LOGGER.info(String.format("Agent started. %d agents now running.", i));
             }
             executor.execute(new MiningAgent(blackboard));
         }
         executor.awaitTermination(trainingTimeInMinutes, TimeUnit.MINUTES);
         if (verbose) {
-            LOGGER.error("Stopping all agents.");
+            LOGGER.info("Stopping all agents.");
         }
         executor.shutdownNow();
         while (!executor.awaitTermination(1000, TimeUnit.MILLISECONDS)) {
             // waiting for all agents to stop
         }
         if (verbose) {
-            LOGGER.error("All agents stopped.");
+            LOGGER.info("All agents stopped.");
         }
-        System.out.println("Best rule: \n " + getBestRule());
+        try {
+            System.out.println("Best Rule: \n" + getBestRule());
+        } catch (Exception e) {
+            LOGGER.info("No best rule found. Using default rule.");
+        }
     }
 
-    private RuleSet getBestRule() throws Exception {
+    public RuleSet getBestRule() throws Exception {
         RuleSet bestRule = blackboard.getBestRule(maxComplexity, withinPercent);
         if (bestRule == null) {
             LOGGER.error("No rule in the ParetoFront with maxComplexity <= " + maxComplexity);
             throw new RuntimeException();
         }
         return bestRule;
+    }
+
+    public double applyRule(RuleSet rule) {
+        RecordsAndRemarks rr = blackboard.getRecords();
+        RawEvaluationResult.setBugMatrix(this.bugMatrix);
+        RawEvaluationResult.setEfforts(this.efforts);
+        ValuedResult<RuleSet> vr = ValuedResult.create(rule, rr.getRecords(), rr.getResultData());
+        if (vr.isNaN() || vr.isTerrible()) {
+            return Double.MIN_VALUE;
+        } else if (vr.isInfinite()) {
+            return Double.MAX_VALUE;
+        } else {
+            return Math.abs(vr.getLowerBoundary() - vr.getUpperBoundary());
+        }
     }
 
     private RecordScheme determineScheme(Instances data) {
@@ -132,7 +159,7 @@ public class GimoMClassifier extends AbstractClassifier {
         return new RecordScheme(numericColumns, stringColumns);
     }
 
-    private Record instanceToRecord(Instance instance, int id) {
+    public static Record instanceToRecord(Instance instance, int id) {
         List<Double> numericValues = DoubleStream.of(instance.toDoubleArray()).boxed().collect(Collectors.toList());
         List<String> stringValues = new ArrayList<>();
         String classification = instance.stringValue(instance.classAttribute());
@@ -148,4 +175,13 @@ public class GimoMClassifier extends AbstractClassifier {
         }
         return records;
     }
+
+    public double[][] toDoubleMatrix(Instances instances) {
+        double[][] matrix = new double[instances.size()][instances.numAttributes()];
+        int i = 0;
+        for (Instance instance : instances) {
+            matrix[i++] = instance.toDoubleArray();
+        }
+        return matrix;
+    } 
 }

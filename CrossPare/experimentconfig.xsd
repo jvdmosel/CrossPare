@@ -20,11 +20,13 @@
         <xs:element name="setwisepostprocessor" type="setupType" minOccurs="0" maxOccurs="unbounded"/>
         <xs:element name="setwisetrainer" type="setupType" minOccurs="0" maxOccurs="unbounded"/>
         <xs:element name="setwisetestdataawaretrainer" type="metricMatchingType" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element name="setwisebugmatrixawaretrainer" type="setupType" minOccurs="0" maxOccurs="unbounded"/>
         <xs:element name="preprocessor" type="setupType" minOccurs="0" maxOccurs="unbounded"/>
         <xs:element name="pointwiseselector" type="setupType" minOccurs="0" maxOccurs="unbounded"/>
         <xs:element name="postprocessor" type="setupType" minOccurs="0" maxOccurs="unbounded"/>
         <xs:element name="trainer" type="setupType" minOccurs="0" maxOccurs="unbounded"/>
         <xs:element name="testawaretrainer" type="setupType" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element name="bugmatrixawaretrainer" type="setupType" minOccurs="0" maxOccurs="unbounded"/>
         <xs:element name="eval" type="setupType" minOccurs="0" maxOccurs="unbounded"/>
         <xs:element name="storage" type="setupType" minOccurs="0" maxOccurs="unbounded"/>
         <xs:element name="repetitions" type="repetitionsType" minOccurs="0" maxOccurs="unbounded"/>

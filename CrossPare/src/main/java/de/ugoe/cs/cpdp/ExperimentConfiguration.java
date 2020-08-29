@@ -24,7 +24,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.LinkedList;
 import java.util.List;
 
-
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
@@ -48,6 +47,8 @@ import de.ugoe.cs.cpdp.training.ISetWiseTestdataAwareTrainingStrategy;
 import de.ugoe.cs.cpdp.training.ISetWiseTrainingStrategy;
 import de.ugoe.cs.cpdp.training.ITestAwareTrainingStrategy;
 import de.ugoe.cs.cpdp.training.ITrainingStrategy;
+import de.ugoe.cs.cpdp.training.IBugMatrixAwareTrainingStrategy;
+import de.ugoe.cs.cpdp.training.ISetWiseBugMatrixAwareTrainingStrategy;
 import de.ugoe.cs.cpdp.versions.IVersionFilter;
 
 /**
@@ -134,6 +135,11 @@ public class ExperimentConfiguration extends DefaultHandler {
     private List<ISetWiseTestdataAwareTrainingStrategy> setwiseTestdataAwareTrainers;
 
     /**
+     * setwise bugmatrix aware trainers, i.e., trainers that require the bugmatrix of the training data
+     */
+    private List<ISetWiseBugMatrixAwareTrainingStrategy> setwiseBugMatrixAwareTrainers;
+
+    /**
      * data processors that are applied before the pointwise data selection
      */
     private List<IProcessesingStrategy> preprocessors;
@@ -157,6 +163,11 @@ public class ExperimentConfiguration extends DefaultHandler {
      * normal trainers, i.e., trainers that require the selected training data in a single data set
      */
     private List<ITestAwareTrainingStrategy> testAwareTrainers;
+
+    /**
+     * bugmatrix aware trainers, i.e., trainers that require the selected training data in a single data set and the corresponding bugmatrix
+     */
+    private List<IBugMatrixAwareTrainingStrategy> bugMatrixAwareTrainers;
 
     /**
      * evaluators used for the the experiment results
@@ -220,11 +231,13 @@ public class ExperimentConfiguration extends DefaultHandler {
         this.setwisepostprocessors = new LinkedList<>();
         this.setwiseTrainers = new LinkedList<>();
         this.setwiseTestdataAwareTrainers = new LinkedList<>();
+        this.setwiseBugMatrixAwareTrainers = new LinkedList<>();
         this.preprocessors = new LinkedList<>();
         this.pointwiseselectors = new LinkedList<>();
         this.postprocessors = new LinkedList<>();
         this.trainers = new LinkedList<>();
         this.testAwareTrainers = new LinkedList<>();
+        this.bugMatrixAwareTrainers = new LinkedList<>();
         this.evaluators = new LinkedList<>();
         this.resultStorages = new LinkedList<>();
 
@@ -318,7 +331,7 @@ public class ExperimentConfiguration extends DefaultHandler {
     }
     
     public List<IVersionProcessingStrategy> getTrainingVersionProcessors() {
-    	return this.trainversionprocessors;
+        return this.trainversionprocessors;
     }
 
     /**
@@ -367,6 +380,15 @@ public class ExperimentConfiguration extends DefaultHandler {
     }
 
     /**
+     * returns the setwise training algorithms
+     * 
+     * @return setwise training algorithms
+     */
+    public List<ISetWiseBugMatrixAwareTrainingStrategy> getSetWiseBugMatrixAwareTrainers() {
+        return this.setwiseBugMatrixAwareTrainers;
+    }
+
+    /**
      * returns the processors applied before the pointwise data selection
      * 
      * @return processors applied before the pointwise data selection
@@ -409,6 +431,15 @@ public class ExperimentConfiguration extends DefaultHandler {
      */
     public List<ITestAwareTrainingStrategy> getTestAwareTrainers() {
         return this.testAwareTrainers;
+    }
+
+    /**
+     * returns the bugMatrix aware training algorithms
+     * 
+     * @return normal training algorithms
+     */
+    public List<IBugMatrixAwareTrainingStrategy> getBugMatrixAwareTrainers() {
+        return this.bugMatrixAwareTrainers;
     }
 
     /**
@@ -563,6 +594,14 @@ public class ExperimentConfiguration extends DefaultHandler {
                 trainer.setThreshold(attributes.getValue("threshold"));
                 this.setwiseTestdataAwareTrainers.add(trainer);
             }
+            else if (qName.equalsIgnoreCase("setwisebugmatrixawaretrainer")) {
+                final ISetWiseBugMatrixAwareTrainingStrategy trainer =
+                    (ISetWiseBugMatrixAwareTrainingStrategy) Class
+                        .forName("de.ugoe.cs.cpdp.training." + attributes.getValue("name")).getDeclaredConstructor()
+                        .newInstance();
+                trainer.setParameter(attributes.getValue("param"));
+                this.setwiseBugMatrixAwareTrainers.add(trainer);
+            }
             else if (qName.equalsIgnoreCase("preprocessor")) {
                 final IProcessesingStrategy processor = (IProcessesingStrategy) Class
                     .forName("de.ugoe.cs.cpdp.dataprocessing." + attributes.getValue("name")).getDeclaredConstructor()
@@ -598,6 +637,13 @@ public class ExperimentConfiguration extends DefaultHandler {
                     .newInstance();
                 trainer.setParameter(attributes.getValue("param"));
                 this.testAwareTrainers.add(trainer);
+            }
+            else if (qName.equalsIgnoreCase("bugmatrixawaretrainer")) {
+                final IBugMatrixAwareTrainingStrategy trainer = (IBugMatrixAwareTrainingStrategy) Class
+                    .forName("de.ugoe.cs.cpdp.training." + attributes.getValue("name")).getDeclaredConstructor()
+                    .newInstance();
+                trainer.setParameter(attributes.getValue("param"));
+                this.bugMatrixAwareTrainers.add(trainer);
             }
             else if (qName.equalsIgnoreCase("eval")) {
                 final IEvaluationStrategy evaluator = (IEvaluationStrategy) Class

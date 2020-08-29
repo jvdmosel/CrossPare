@@ -5,6 +5,8 @@ import java.util.List;
 
 import de.ugoe.cs.cpdp.ExperimentConfiguration;
 import de.ugoe.cs.cpdp.eval.IResultStorage;
+import de.ugoe.cs.cpdp.training.IBugMatrixAwareTrainingStrategy;
+import de.ugoe.cs.cpdp.training.ISetWiseBugMatrixAwareTrainingStrategy;
 import de.ugoe.cs.cpdp.training.ISetWiseTestdataAwareTrainingStrategy;
 import de.ugoe.cs.cpdp.training.ISetWiseTrainingStrategy;
 import de.ugoe.cs.cpdp.training.ITestAwareTrainingStrategy;
@@ -85,10 +87,18 @@ public class CrosspareUtils {
         {
             allTrainers.add(setwiseTestdataAwareTrainer);
         }
+        for (ISetWiseBugMatrixAwareTrainingStrategy setwiseBugMatrixAwareTrainer : config
+            .getSetWiseBugMatrixAwareTrainers())
+        {
+            allTrainers.add(setwiseBugMatrixAwareTrainer);
+        }
         for (ITrainingStrategy trainer : config.getTrainers()) {
             allTrainers.add(trainer);
         }
         for (ITestAwareTrainingStrategy trainer : config.getTestAwareTrainers()) {
+            allTrainers.add(trainer);
+        }
+        for (IBugMatrixAwareTrainingStrategy trainer : config.getBugMatrixAwareTrainers()) {
             allTrainers.add(trainer);
         }
 
