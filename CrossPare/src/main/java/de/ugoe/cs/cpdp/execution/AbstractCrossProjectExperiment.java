@@ -158,9 +158,7 @@ public abstract class AbstractCrossProjectExperiment implements IExecutionStrate
     public static Instances makeSingleBugMatrix(SetUniqueList<Instances> traindataBugs) {
         final ArrayList<Attribute> bugMatrixAtts = new ArrayList<>();
         final Map<String,Integer> nameToIndex = new HashMap<>();
-        int n = 0;
         for (Instances bugMatrix : traindataBugs) {
-            n += bugMatrix.size();
             for (Iterator<Attribute> iterator = bugMatrix.enumerateAttributes().asIterator(); iterator.hasNext();) {
                 String attName = iterator.next().name();
                 Attribute att = new Attribute(attName);
@@ -170,24 +168,22 @@ public abstract class AbstractCrossProjectExperiment implements IExecutionStrate
                 }
             }
         }
-        double[][] attValuesFull = new double[n][bugMatrixAtts.size()]; 
-        Instances bugmatrixFull = new Instances("trainBugMatrixFull", bugMatrixAtts, 0);
-        int i = 0;
+        Instances singleBugMatrix = new Instances("singleBugMatrix", bugMatrixAtts, 0);
         for (Instances bugMatrix : traindataBugs) {
             List<String> attNames = new ArrayList<>();
             for (Iterator<Attribute> iterator = bugMatrix.enumerateAttributes().asIterator(); iterator.hasNext();) {
                 attNames.add(iterator.next().name());
             }
             for (Instance instance : bugMatrix) {
-                double[] attValues = instance.toDoubleArray();
-                for (int j = 0; j < attValues.length; j++) {
-                    attValuesFull[i][nameToIndex.get(attNames.get(j))] = attValues[j];
+                double[] allBugs = new double[bugMatrixAtts.size()];
+                double[] bugs = instance.toDoubleArray();
+                for (int j = 0; j < bugs.length; j++) {
+                    allBugs[nameToIndex.get(attNames.get(j))] = bugs[j];
                 }
-                bugmatrixFull.add(new DenseInstance(1.0, attValuesFull[i]));
-                i++;
+                singleBugMatrix.add(new DenseInstance(1.0, allBugs));
             }
         }
-        return bugmatrixFull;
+        return singleBugMatrix;
     }
 
     /**
