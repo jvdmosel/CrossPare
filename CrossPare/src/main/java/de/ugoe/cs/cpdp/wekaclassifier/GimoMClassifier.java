@@ -165,7 +165,7 @@ public class GimoMClassifier extends AbstractClassifier implements IBugMatrixAwa
         if (instance.classAttribute().isNominal()) {
             classification = instance.stringValue(instance.classAttribute());
         } else {
-            classification = (instance.classIndex() == 0) ? "0" : "1";
+            classification = (instance.classValue() == 0) ? "0" : "1";
         }
         return new Record(id, numericValues, stringValues, classification);
     }
