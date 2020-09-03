@@ -1,6 +1,5 @@
 package de.ugoe.cs.cpdp.wekaclassifier;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -15,7 +14,6 @@ import weka.core.Attribute;
 import weka.core.Instance;
 import weka.core.Instances;
 import weka.core.Utils;
-import weka.core.converters.CSVSaver;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -43,6 +41,8 @@ public class GimoMClassifier extends AbstractClassifier implements IBugMatrixAwa
     private double[][] bugMatrix = null;
 
     private List<Double> efforts = null;
+
+    private RuleSet bestRule = null;
 
     private double maxComplexity = 30;
 
@@ -75,13 +75,9 @@ public class GimoMClassifier extends AbstractClassifier implements IBugMatrixAwa
 
     @Override
     public double classifyInstance(Instance instance) {
-        RuleSet bestRule;
-        try {
-            bestRule = getBestRule();
-        } catch (Exception e) {
+        if (bestRule == null) {
             LOGGER.info("No best rule found. Using default rule.");
-            // default rule: normally use 0
-            return 0.0;
+            bestRule = RuleSet.create("0");
         }
         Record r = instanceToRecord(instance, 0);
         String classification = bestRule.apply(r);
@@ -119,10 +115,13 @@ public class GimoMClassifier extends AbstractClassifier implements IBugMatrixAwa
             LOGGER.info("All agents stopped.");
         }
         try {
-            System.out.println("Best Rule: \n" + getBestRule());
+            bestRule = getBestRule();
         } catch (Exception e) {
             LOGGER.info("No best rule found. Using default rule.");
+            // default rule: normally use 0
+            bestRule = RuleSet.create("0");
         }
+        System.out.println("Best Rule: \n" + bestRule);
     }
 
     public RuleSet getBestRule() throws Exception {
@@ -162,7 +161,12 @@ public class GimoMClassifier extends AbstractClassifier implements IBugMatrixAwa
     public static Record instanceToRecord(Instance instance, int id) {
         List<Double> numericValues = DoubleStream.of(instance.toDoubleArray()).boxed().collect(Collectors.toList());
         List<String> stringValues = new ArrayList<>();
-        String classification = instance.stringValue(instance.classAttribute());
+        String classification;
+        if (instance.classAttribute().isNominal()) {
+            classification = instance.stringValue(instance.classAttribute());
+        } else {
+            classification = (instance.classIndex() == 0) ? "0" : "1";
+        }
         return new Record(id, numericValues, stringValues, classification);
     }
 
